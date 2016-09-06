@@ -12,7 +12,7 @@
 #define SYS_PATH		"/sys/class/video4linux/"
 #define DEV_PATH		"/dev/"
 
-static bool 
+static bool
 rk_v4l2_open(struct rk_v4l2_object *ctx, const char *device_path)
 {
 	int fd = open(device_path, O_RDWR /*| O_NONBLOCK*/ );
@@ -26,7 +26,7 @@ rk_v4l2_open(struct rk_v4l2_object *ctx, const char *device_path)
 	return true;
 }
 
-static bool 
+static bool
 rk_v4l2_open_by_name(struct rk_v4l2_object *ctx, const char *name)
 {
 	DIR *dir;
@@ -64,7 +64,7 @@ rk_v4l2_open_by_name(struct rk_v4l2_object *ctx, const char *name)
 
 static void rk_v4l2_dec_input_release(struct rk_v4l2_object *ctx)
 {
-	struct v4l2_requestbuffers breq = { 0, 
+	struct v4l2_requestbuffers breq = { 0,
 		V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE, V4L2_MEMORY_MMAP };
 
 	ioctl(ctx->video_fd, VIDIOC_REQBUFS, &breq);
@@ -72,7 +72,7 @@ static void rk_v4l2_dec_input_release(struct rk_v4l2_object *ctx)
 
 static void rk_v4l2_dec_output_release(struct rk_v4l2_object *ctx)
 {
-	struct v4l2_requestbuffers breq = { 0, 
+	struct v4l2_requestbuffers breq = { 0,
 		V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE, V4L2_MEMORY_MMAP };
 
 	ioctl(ctx->video_fd, VIDIOC_REQBUFS, &breq);
@@ -82,7 +82,7 @@ static int32_t rk_v4l2_dec_input_allocate
 (void *data, uint32_t count)
 {
 	struct rk_v4l2_object *ctx = (struct rk_v4l2_object *)data;
-	struct v4l2_requestbuffers breq = { count, 
+	struct v4l2_requestbuffers breq = { count,
 		V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE, V4L2_MEMORY_MMAP };
 	struct v4l2_buffer buffer;
 	struct v4l2_format *format = &ctx->input_format;
@@ -152,7 +152,7 @@ static int32_t rk_v4l2_dec_output_allocate
 (void *data, uint32_t count)
 {
 	struct rk_v4l2_object *ctx = (struct rk_v4l2_object *)data;
-	struct v4l2_requestbuffers breq = { count, 
+	struct v4l2_requestbuffers breq = { count,
 		V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE, V4L2_MEMORY_MMAP };
 	struct v4l2_exportbuffer expbuf;
 	struct v4l2_format *format = &ctx->output_format;
@@ -209,7 +209,7 @@ static int32_t rk_v4l2_dec_output_allocate
 			void *ptr = NULL;
 
 			expbuf.plane = j;
-			if (ioctl(ctx->video_fd, VIDIOC_EXPBUF, &expbuf) < 0) 
+			if (ioctl(ctx->video_fd, VIDIOC_EXPBUF, &expbuf) < 0)
 			{
 				rk_error_msg
 					("Export of output buffer failed\n");
@@ -229,6 +229,7 @@ static int32_t rk_v4l2_dec_output_allocate
 			ctx->output_buffer[i].plane[j].length =
 				 buffer.m.planes[j].length;
 			ctx->output_buffer[i].plane[j].data = ptr;
+			ctx->output_buffer[i].plane[j].fd = expbuf.fd;
 		}
 		ctx->output_buffer[i].state = BUFFER_FREE;
 		ctx->output_buffer[i].index = i;
@@ -274,7 +275,7 @@ static int32_t rk_v4l2_dec_qbuf_input
 	}
 
 	if (ioctl(ctx->video_fd, VIDIOC_QBUF, &qbuf)) {
-		rk_info_msg("Enqueuing of input buffer %d failed\n", 
+		rk_info_msg("Enqueuing of input buffer %d failed\n",
 				buffer->index);
 		return -1;
 	}
@@ -343,9 +344,11 @@ static int32_t rk_v4l2_dec_dqbuf_input
 	(*buffer)->plane[0].bytesused = 0;
 	/* After dequeue, I think it won't be used anymore */
 	(*buffer)->state = BUFFER_FREE;
-	
+
 	return 0;
 }
+
+int fd__ = 0;
 
 static int32_t rk_v4l2_dec_dqbuf_output
 (void *data, struct rk_v4l2_buffer **buffer)
@@ -370,7 +373,7 @@ static int32_t rk_v4l2_dec_dqbuf_output
 				errno);
 		return -1;
 	}
-
+	fd__ = ctx->output_buffer[dqbuf.index].plane[0].fd;
 	*buffer = &(ctx->output_buffer[dqbuf.index]);
 
 	for(uint32_t i = 0; i < format->fmt.pix_mp.num_planes; i++) {
@@ -378,12 +381,12 @@ static int32_t rk_v4l2_dec_dqbuf_output
 	}
 
 	(*buffer)->state = BUFFER_DEQUEUED;
-	
+
 	return 0;
 }
 
-static int32_t 
-rk_v4l2_dec_set_codec(void *data, int32_t codec_type) 
+static int32_t
+rk_v4l2_dec_set_codec(void *data, int32_t codec_type)
 {
 	struct rk_v4l2_object *ctx = (struct rk_v4l2_object *)data;
 	struct v4l2_format format;
@@ -399,7 +402,7 @@ rk_v4l2_dec_set_codec(void *data, int32_t codec_type)
 	return (ioctl(ctx->video_fd, VIDIOC_S_FMT, &format));
 }
 
-static int32_t 
+static int32_t
 rk_v4l2_dec_set_fmt(void *data, uint32_t reversed)
 {
 	struct rk_v4l2_object *ctx = (struct rk_v4l2_object *)data;
@@ -435,7 +438,7 @@ bool rk_v4l2_streamon_all(struct rk_v4l2_object *ctx)
 };
 
 static int8_t *rk_vpu_dec_list[] = {
-	"rockchip-vpu-vdec",	
+	"rockchip-vpu-vdec",
 	"rockchip-vpu-dec",
 	"rk3288-vpu-dec",
 };
@@ -455,9 +458,9 @@ struct rk_v4l2_object *rk_v4l2_dec_create(int8_t *vpu_path)
 		if (!rk_v4l2_open(ctx, vpu_path))
 			goto create_ctx_err;
 	}
-	else 
+	else
 	{
-		for (uint8_t i = 0; 
+		for (uint8_t i = 0;
 			i < (sizeof(rk_vpu_dec_list)/sizeof(int8_t *)); i++)
 		{
 			if (rk_v4l2_open_by_name(ctx, rk_vpu_dec_list[i]))
@@ -485,7 +488,7 @@ create_ctx_err:
 
 void rk_v4l2_destroy(struct rk_v4l2_object *ctx)
 {
-	/* The streamoff should be enough to release the allocate 
+	/* The streamoff should be enough to release the allocate
 	 * v4l2 buffer */
 	/* FIXME the streamoff order is different between
 	 * encoder and decoder */
